@@ -1,3 +1,4 @@
+using Ionic.Zip;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -21,7 +22,27 @@ namespace NuGet
         {
         }
 
-        protected ZipPackageFile(string path, Func<Stream> streamFactory)
+		public ZipPackageFile(ZipEntry part)
+			: this(UriUtility.GetPath(new Uri(part.FileName, UriKind.Relative)), part)
+		{			
+		}
+
+		protected ZipPackageFile(string path, ZipEntry entry)
+		{
+			using (MemoryStream ms = new MemoryStream())
+			{
+				entry.Extract(ms);
+				_streamFactory = ms.ToStreamFactory();
+			}
+
+			Path = path;
+
+			string effectivePath;
+			_targetFramework = VersionUtility.ParseFrameworkNameFromFilePath(path, out effectivePath);
+			EffectivePath = effectivePath;
+		}
+
+		protected ZipPackageFile(string path, Func<Stream> streamFactory)
         {
             Path = path;
             _streamFactory = streamFactory;
