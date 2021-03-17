@@ -27,7 +27,7 @@ namespace NuGet
         // We don't store the stream itself, just a way to open the stream on demand
         // so we don't have to hold on to that resource
         private readonly Func<Stream> _streamFactory;
-		private String filePath;
+        private String filePath;
 
         public ZipPackage(string filePath)
             : this(filePath, enableCaching: false)
@@ -42,7 +42,7 @@ namespace NuGet
             }
             _enableCaching = false;
             _streamFactory = stream.ToStreamFactory();
-			EnsureManifest();
+            EnsureManifest();
         }
 
         private ZipPackage(string filePath, bool enableCaching)
@@ -53,7 +53,7 @@ namespace NuGet
             }
             _enableCaching = enableCaching;
             _streamFactory = () => File.OpenRead(filePath);
-			this.filePath = filePath;
+            this.filePath = filePath;
             EnsureManifest();
         }
 
@@ -85,14 +85,14 @@ namespace NuGet
             {
                 using (Stream stream = _streamFactory())
                 {
-					using (ZipFile zip = ZipFile.Read(stream))
-					{
-						string effectivePath;
-						fileFrameworks = from part in zip.Entries
-										 where IsPackageFile(new Uri(part.FileName, UriKind.Relative))
-										 select VersionUtility.ParseFrameworkNameFromFilePath(UriUtility.GetPath(new Uri(part.FileName, UriKind.Relative)), out effectivePath);
-					}
-				}
+                    using (ZipFile zip = ZipFile.Read(stream))
+                    {
+                        string effectivePath;
+                        fileFrameworks = from part in zip.Entries
+                                         where IsPackageFile(new Uri(part.FileName, UriKind.Relative))
+                                         select VersionUtility.ParseFrameworkNameFromFilePath(UriUtility.GetPath(new Uri(part.FileName, UriKind.Relative)), out effectivePath);
+                    }
+                }
             }
 
             return base.GetSupportedFrameworks()
@@ -131,53 +131,53 @@ namespace NuGet
         {
             using (Stream stream = _streamFactory())
             {
-				using (ZipFile zip = ZipFile.Read(stream))
-				{
-					return (from part in zip.Entries
-							where IsPackageFile(new Uri(part.FileName, UriKind.Relative))
-							select (IPackageFile)new ZipPackageFile(part)).ToList();
-				}
-			}
+                using (ZipFile zip = ZipFile.Read(stream))
+                {
+                    return (from part in zip.Entries
+                            where IsPackageFile(new Uri(part.FileName, UriKind.Relative))
+                            select (IPackageFile)new ZipPackageFile(part)).ToList();
+                }
+            }
         }
 
         private void EnsureManifest()
         {
-			using (Stream stream = _streamFactory())
-			{
-				using (MemoryStream manifestStream = new MemoryStream())
-				{
-					using (ZipFile zip = ZipFile.Read(stream))
-					{
-						foreach (ZipEntry e in zip)
-						{
-							// Manifest is in the .nuspec file.
-							if (e.FileName.EndsWith(".nuspec"))
-							{
-								e.Extract(manifestStream);
-							}
-						}
-					}
+            using (Stream stream = _streamFactory())
+            {
+                using (MemoryStream manifestStream = new MemoryStream())
+                {
+                    using (ZipFile zip = ZipFile.Read(stream))
+                    {
+                        foreach (ZipEntry e in zip)
+                        {
+                            // Manifest is in the .nuspec file.
+                            if (e.FileName.EndsWith(".nuspec"))
+                            {
+                                e.Extract(manifestStream);
+                            }
+                        }
+                    }
 
-					// Let's remove the XML declaration for the XML parser.
-					string manifest = System.Text.Encoding.UTF8.GetString(manifestStream.ToArray());
-					string manafiestWithoutDeclaration = RemoveFirstLines(manifest, 1);
+                    // Let's remove the XML declaration for the XML parser.
+                    string manifest = System.Text.Encoding.UTF8.GetString(manifestStream.ToArray());
+                    string manafiestWithoutDeclaration = RemoveFirstLines(manifest, 1);
 
-					byte[] byteArray = System.Text.Encoding.UTF8.GetBytes(manafiestWithoutDeclaration);
-					using (MemoryStream fixedStream = new MemoryStream(byteArray))
-					{
-						ReadManifest(fixedStream);
-					}
-				}
-			}
-		}
+                    byte[] byteArray = System.Text.Encoding.UTF8.GetBytes(manafiestWithoutDeclaration);
+                    using (MemoryStream fixedStream = new MemoryStream(byteArray))
+                    {
+                        ReadManifest(fixedStream);
+                    }
+                }
+            }
+        }
 
-		private string RemoveFirstLines(string text, int linesCount)
-		{
-			var lines = Regex.Split(text, "\r\n|\r|\n").Skip(linesCount);
-			return string.Join(Environment.NewLine, lines.ToArray());
-		}
+        private string RemoveFirstLines(string text, int linesCount)
+        {
+            var lines = Regex.Split(text, "\r\n|\r|\n").Skip(linesCount);
+            return string.Join(Environment.NewLine, lines.ToArray());
+        }
 
-		private string GetFilesCacheKey()
+        private string GetFilesCacheKey()
         {
             return String.Format(CultureInfo.InvariantCulture, CacheKeyFormat, FilesCacheKey, Id, Version);
         }
@@ -197,17 +197,17 @@ namespace NuGet
                    !PackageHelper.IsManifest(path);
         }
 
-		internal static bool IsPackageFile(Uri uri)
-		{
-			string path = UriUtility.GetPath(uri);
-			string directory = Path.GetDirectoryName(path);
+        internal static bool IsPackageFile(Uri uri)
+        {
+            string path = UriUtility.GetPath(uri);
+            string directory = Path.GetDirectoryName(path);
 
-			// We exclude any opc files and the manifest file (.nuspec)
-			return !ExcludePaths.Any(p => directory.StartsWith(p, StringComparison.OrdinalIgnoreCase)) &&
-				   !PackageHelper.IsManifest(path);
-		}
+            // We exclude any opc files and the manifest file (.nuspec)
+            return !ExcludePaths.Any(p => directory.StartsWith(p, StringComparison.OrdinalIgnoreCase)) &&
+                   !PackageHelper.IsManifest(path);
+        }
 
-		internal static void ClearCache(IPackage package)
+        internal static void ClearCache(IPackage package)
         {
             var zipPackage = package as ZipPackage;
 
