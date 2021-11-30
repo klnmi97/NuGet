@@ -8,6 +8,7 @@ using System.Runtime.Versioning;
 using NuGet.Resources;
 using Ionic.Zip;
 using System.Text.RegularExpressions;
+using System.Xml;
 
 namespace NuGet
 {
@@ -133,11 +134,57 @@ namespace NuGet
             {
                 using (ZipFile zip = ZipFile.Read(stream))
                 {
-                    return (from part in zip.Entries
+                    ZipEntry contentTypes = zip.Entries.First(x => x.FileName == "[Content_Types].xml");
+                    XmlDocument doc = new XmlDocument();   
+
+                    // Extract xml with suppported file extensions.
+                    using (MemoryStream xmlStream = ExtractXmlEntryForParsing(contentTypes))
+                    {
+                        doc.Load(xmlStream);
+                    }
+
+                    List<ZipEntry> filteredEntries = new List<ZipEntry>();
+                    List<string> extensionsList = GetContentTypes(doc);
+
+                    // Let's behave the same as the System.IO.Packaging.PackagePartCollection GetParts() method
+                    // before it was rewritten to use DotNetZip. Filter directories and 
+                    // extensions which are not in "[Content_Types].xml" file.
+                    foreach (var entry in zip.Entries.Where(x => !x.IsDirectory))
+                    {
+                        foreach (var extension in extensionsList)
+                        {
+                            if (entry.FileName.EndsWith(extension))
+                            {
+                                filteredEntries.Add(entry);
+                            }
+                        }
+                    }
+
+                    return (from part in filteredEntries
                             where IsPackageFile(new Uri(part.FileName, UriKind.Relative))
                             select (IPackageFile)new ZipPackageFile(part)).ToList();
                 }
             }
+        }
+
+        private MemoryStream ExtractXmlEntryForParsing(ZipEntry xmlEntry)
+        {
+            using (MemoryStream manifestStream = new MemoryStream())
+            {
+                xmlEntry.Extract(manifestStream);
+
+                // Let's remove the XML declaration for the XML parser.
+                string manifest = System.Text.Encoding.UTF8.GetString(manifestStream.ToArray());
+                string manafiestWithoutDeclaration = RemoveFirstLines(manifest, 1);
+
+                byte[] byteArray = System.Text.Encoding.UTF8.GetBytes(manafiestWithoutDeclaration);
+                return new MemoryStream(byteArray);
+            }
+        }
+
+        static List<string> GetContentTypes(XmlNode doc)
+        {
+            return (from XmlNode node in doc.FirstChild.ChildNodes select node.Attributes["Extension"].Value.ToString()).ToList();
         }
 
         private void EnsureManifest()
@@ -153,19 +200,12 @@ namespace NuGet
                             // Manifest is in the .nuspec file.
                             if (e.FileName.EndsWith(".nuspec"))
                             {
-                                e.Extract(manifestStream);
+                                using (MemoryStream fixedStream = ExtractXmlEntryForParsing(e))
+                                {
+                                    ReadManifest(fixedStream);
+                                }
                             }
                         }
-                    }
-
-                    // Let's remove the XML declaration for the XML parser.
-                    string manifest = System.Text.Encoding.UTF8.GetString(manifestStream.ToArray());
-                    string manafiestWithoutDeclaration = RemoveFirstLines(manifest, 1);
-
-                    byte[] byteArray = System.Text.Encoding.UTF8.GetBytes(manafiestWithoutDeclaration);
-                    using (MemoryStream fixedStream = new MemoryStream(byteArray))
-                    {
-                        ReadManifest(fixedStream);
                     }
                 }
             }
