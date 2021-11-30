@@ -20,6 +20,9 @@ namespace NuGet
             {
                 using (memoryStream = new MemoryStream())
                 {
+                    // CopyTo copies from the current position in the stream
+                    // and we want to read all bytes.
+                    stream.Seek(0, SeekOrigin.Begin);
                     stream.CopyTo(memoryStream);
                     return memoryStream.ToArray();
                 }
@@ -28,7 +31,7 @@ namespace NuGet
 
         /// <summary>
         /// Turns an existing stream into one that a stream factory that can be reopened.
-        /// </summary>        
+        /// </summary>
         public static Func<Stream> ToStreamFactory(this Stream stream)
         {
             byte[] buffer;
@@ -37,6 +40,9 @@ namespace NuGet
             {
                 try
                 {
+                    // CopyTo copies from the current position in the stream
+                    // and we want to copy the whole stream.
+                    stream.Seek(0, SeekOrigin.Begin);
                     stream.CopyTo(ms);
                     buffer = ms.ToArray();
                 }
